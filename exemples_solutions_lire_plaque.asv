@@ -15,7 +15,7 @@ clc;
 %exemple 3
 %detectLicensePlate("BDD\car_img\2.jpg")
 %ret = lireZoneImage("BDD\car_img\3.jpg")
-detectLicensePlateWithOCR("BDD\car_img\103.png")
+detectLicensePlateWithOCR("BDD\car_img\2.jpg")
 
 %utilise readletter et nouvmodel.mat
 function detectedPlate = detecterPlaque(imagePath)
@@ -515,8 +515,65 @@ function detectLicensePlate(imagePath)
     sgtitle('Détection de régions d''intérêt avec différents seuillages');
 end
 
-function validText = detectLicensePlateWithOCR(imagePath)
-    maxConf = 0;
+function mostReliableLicensePlate = detectAndReadLicensePlates(imagePath)
+    % Charger l'image
+    img = imread(imagePath);
+
+    % Convertir en niveaux de gris
+    imgGray = rgb2gray(img);
+
+    % Définir une plage de seuillages binaires
+    thresholds = linspace(0.1, 0.9, 5); % Modifier la plage et le nombre de seuillages si nécessaire
+
+    % Initialiser une variable pour stocker la lecture la plus fiable
+    mostReliableLicensePlate = '';
+
+    % Appliquer une boucle sur les différentes valeurs de seuillage
+    for i = 1:length(thresholds)
+        % Appliquer le seuillage binaire
+        binaryImg = imbinarize(imgGray, thresholds(i));
+
+        % Appliquer une opération de fermeture pour connecter les régions
+        se = strel('disk', 5);
+        closedImg = imclose(binaryImg, se);
+
+        % Trouver les régions d'intérêt dans l'image
+        stats = regionprops(bwlabel(closedImg), 'BoundingBox', 'Area');
+
+        % Filtrer les régions en fonction de la taille
+        minArea = 1000; % Ajuster la taille minimale selon besoin
+        maxArea = 50000; % Ajuster la taille maximale selon besoin
+        validRegions = stats([stats.Area] > minArea & [stats.Area] < maxArea);
+
+        % Boucle sur les régions valides pour effectuer la lecture OCR
+        for j = 1:numel(validRegions)
+            % Extraire la région d'intérêt
+            roi = imcrop(imgGray, validRegions(j).BoundingBox);
+
+            % Appliquer la lecture OCR
+            ocrResult = ocr(roi);
+            averageConfidence = mean(ocrResult.WordConfidences);
+            disp("ocr")
+            disp(averageConfidence)
+            if isequal(mostReliableLicensePlate,'')
+                mostReliableLicensePlate = ocrResult;
+            end
+            disp("mostRel")
+            disp(mostReliableLicensePlate)
+            if ~isempty(averageConfidence)
+                % Comparer la fiabilité des résultats
+                if averageConfidence > mean(mostReliableLicensePlate.WordConfidences)
+                    mostReliableLicensePlate = ocrResult;
+                end
+            end
+        end
+    end
+
+    % Afficher la lecture la plus fiable
+    disp(['Plaque d''immatriculation la plus fiable: ' mostReliableLicensePlate.Text ' (Confiance: ' num2str(mean(mostReliableLicensePlate.WordConfidences)) ')']);
+end
+
+function detectedText = detectLicensePlateWithOCR(imagePath)
     % Charger l'image
     img = imread(imagePath);
 
@@ -580,12 +637,6 @@ function validText = detectLicensePlateWithOCR(imagePath)
         if ~isempty(detectedText)
             %break;
             conf = mean(ocrResult.WordConfidences)
-            %disp(detectedText)
-            %disp(conf)
-            if conf>maxConf
-                maxConf=conf
-                validText = detectedText
-            end
         end
     end
 
