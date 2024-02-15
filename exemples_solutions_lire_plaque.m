@@ -5,17 +5,21 @@ clear all;
 clc;
 
 %choix de la fonction à utiliser
+imgPath = "BDD\car_img\9.jpg" % 100 fail, 101 ex1 ok, 102 fail, 103 ok, 104 fail, 105 ex2 ok, 1 fail, 2 ok, 3 ok, 4 fail, 5 ok, 6 fail, 7 fail , 8 fail, 9 fail
+
 %exemple 1
-%result = detecterPlaque("BDD\car_img\101.png")
+result = detecterPlaque(imgPath)
 %disp(['Plaque d''immatriculation détectée: ' result]);
 
 %exemple 2
-%ret = numberPlateExtraction("BDD\car_img\101.png")
+try ret = numberPlateExtraction(imgPath)
+catch exception
+end
 
 %exemple 3
 %detectLicensePlate("BDD\car_img\2.jpg")
 %ret = lireZoneImage("BDD\car_img\3.jpg")
-detectLicensePlateWithOCR("BDD\car_img\103.png")
+res = detectLicensePlateWithOCR(imgPath)
 
 %utilise readletter et nouvmodel.mat
 function detectedPlate = detecterPlaque(imagePath)
@@ -80,7 +84,7 @@ for n=1:length(NewTemplates)
 end
 
 ind=find(rec==max(rec));
-display(ind);
+%display(ind);
 
 % Listes alphabétiques de A a Z
 if ind==1 || ind==2
@@ -165,7 +169,7 @@ end
 
 function ret = numberPlateExtraction(imgpath)
 %NUMBERPLATEEXTRACTION extracts the characters from the input number plate image.
-
+ret =0;
 f=imread(imgpath); % Reading the number plate image.
 f=imresize(f,[400 NaN]); % Resizing the image keeping aspect ratio same.
 g=rgb2gray(f); % Converting the RGB (color) image to gray (intensity).
@@ -422,6 +426,59 @@ for k=1:size(takethisbox,1)
 end
 end
 
+function container=guessthesix(Q,W,bsize)
+%GUESSTHESIX guesses the container for six interested Bounding boxes.
+%   CONTAINER=GUESSTHESIX(Q,W,BSIZE) outputs the container for the desired
+%   Bounding boxes from the frequency row vector Q, row vector of mid
+%   points of bins  in W and binsize in BSIZE.
+
+for l=5:-1:2 % This condition has to be changed accordingly if number plates are other than six characters.
+    val=find(Q==l); % Find the indices corresponding the value of frequency equals 'l'.
+    var=length(val); % Check how many indices are found.
+    if isempty(var) || var == 1 % If no index or one index is found.
+        if val == 1
+            index=val+1; % Since zero index is not allowed in MATLAB.
+        else
+            index=val; % Assign that value to 'index'.
+        end
+        if length(Q)==val % In case if the last index value is reached,
+            index=[];     % then index+1 will be out of Q.
+        end
+        if Q(index)+Q(index+1) == 6 % If the sum of frequencies with the subsequent bin equals six.
+            container=[W(index)-(bsize/2) W(index+1)+(bsize/2)]; % Calculae container and break looping
+            break;                                               % for more values.
+        elseif Q(index)+Q(index-1) == 6 % If the sum of frequencies with the previous bin equals six.
+            container=[W(index-1)-(bsize/2) W(index)+(bsize/2)]; % Calculate container and break looping
+            break;                                               % for more values.
+        end
+    else % If more than one index are found.
+        for k=1:1:var % Repeat the analysis for every value of the bin and checks for the same condition
+            if val(k)==1
+                index=val(k)+1; % Since zero index is not allowed in MATLAB.
+            else
+                index=val(k); % that where the sum of frequencies equals six.
+            end
+            if length(Q)==val(k) % In case if the last index value is reached,
+                index=[];        % then index+1 will be out of Q.
+            end
+            if Q(index)+Q(index+1) == 6
+                container=[W(index)-(bsize/2) W(index+1)+(bsize/2)]; % Calculate the value of container and break.
+                break;
+            elseif Q(index)+Q(index-1) == 6
+                container=[W(index-1)-(bsize/2) W(index)+(bsize/2)];
+                break;
+            end
+        end
+        if k~=var % If for any value of index bins frequencies sum to six then just break.
+            break;
+        end
+    end
+end
+if l==2 % If looping is done and no frequencies sum to six then assign container the empty matrix.
+    container=[];
+end
+end
+
 function ret = lireZoneImage(selectedImagePath)
 img = imread(selectedImagePath);
 
@@ -516,6 +573,7 @@ function detectLicensePlate(imagePath)
 end
 
 function validText = detectLicensePlateWithOCR(imagePath)
+    validText='';
     maxConf = 0;
     % Charger l'image
     img = imread(imagePath);
@@ -579,12 +637,12 @@ function validText = detectLicensePlateWithOCR(imagePath)
         % Si du texte a été détecté, sortir de la boucle
         if ~isempty(detectedText)
             %break;
-            conf = mean(ocrResult.WordConfidences)
+            conf = mean(ocrResult.WordConfidences);
             %disp(detectedText)
             %disp(conf)
             if conf>maxConf
-                maxConf=conf
-                validText = detectedText
+                maxConf=conf;
+                validText = detectedText;
             end
         end
     end
