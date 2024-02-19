@@ -82,9 +82,10 @@ buttonPanel = uipanel('Parent', fig, 'Position', [0.5, 0.6, 0.5, 0.4]);
 
     % Fonction pour traiter l'image lors du clic sur le bouton
     function processImageCallback(~, ~)
-        processedImage = processImage(image);
-        plateText = readPlate(processedImage);
-        display(plateText)
+        grayImage = rgb2gray(image);
+        processedImage = grayImage;
+        plateText = readPlate(image);
+        %display(plateText)
         if strlength(plateText)<5
             plateText = "Aucune plaque trouvée";
         end
@@ -108,10 +109,32 @@ buttonPanel = uipanel('Parent', fig, 'Position', [0.5, 0.6, 0.5, 0.4]);
         set(BDDinfosUI, 'String', ['']);
     end
 
-    % Fonction pour traiter l'image
-    function processedImage = processImage(image)
-        grayImage = rgb2gray(image);
-        processedImage = grayImage;
+    %applique un seuil pour lire les plaques
+    function im_2=filter(im_1)
+    im_2=0*im_1;
+    Seuil1=0;
+    Seuil2=0;
+    Seuil3=0;
+    [M,N, channel] = size(im_1);
+    for i=1:M
+        for j=1:N
+    
+            % Composante R
+            if(im_1(i,j,1)>Seuil1)
+                im_2(i,j,1)=255;
+            end;
+    
+            % Composante G
+            if(im_1(i,j,2)>Seuil2)
+                im_2(i,j,2)=255;
+            end;
+    
+            % Composante B
+            if(im_1(i,j,3)>Seuil3)
+                im_2(i,j,3)=255;
+                end;
+            end;
+        end;
     end
 
         %fonction pour rechercher les informations du fichier excel à partir de la
@@ -120,7 +143,7 @@ buttonPanel = uipanel('Parent', fig, 'Position', [0.5, 0.6, 0.5, 0.4]);
         % Check if the string is inside the table
         [isStringPresent, index] = ismember(id, regexprep(texte(:,1), '[^A-Z0-9]', ''));
         if(isStringPresent>0)
-            name = ['NOM : ', texte(index, 6), '  CRIME : ', texte(index, 8), newline, 'TYPE : ', texte(index, 2)];
+            name = ['NOM : ', texte(index, 6), 'VOYOU ?', texte(index,7), '  CRIME : ', texte(index, 8), 'TYPE : ', texte(index, 2)];
         else
             name = "Cette plaque n'est pas dans la base de données";
         end;
@@ -130,13 +153,33 @@ buttonPanel = uipanel('Parent', fig, 'Position', [0.5, 0.6, 0.5, 0.4]);
     end
 
     % Fonction pour lire la plaque
-    function plateText = readPlate(processedImage)
+    function plateText = readPlate(image)
+        grayImage = rgb2gray(image);
+        processedImage = grayImage;
         ocrResults = ocr(processedImage, 'CharacterSet', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-');
         plateText = ocrResults.Text;
+        filImg = filter(image);
+        ocrResults = ocr(filImg, 'TextLayout','Line');
+        if strlength(ocrResults.Text)>5
+            plateText = regexprep(ocrResults.Text, '[^A-Z0-9]', '');
+            disp(plateText)
+            disp('ok')
+        end
             % Create an empty table to store plate images
         plateTable = table('Size', [0, 1], 'VariableTypes', {'uint8'});
 
         pattern = '[A-Z]{2}-\d{3}-[A-Z]{2}';
+        matches = regexp(plateText, pattern, 'match');
+
+        if ~isempty(matches)
+            plateText = matches{1};
+            findName(regexprep(plateText, '[^A-Z0-9]', ''),excel)
+            return;
+        else
+            %plateText = '';
+        end
+
+        pattern = '[A-Z]{2}\d{3}[A-Z]{2}';
         matches = regexp(plateText, pattern, 'match');
 
         if ~isempty(matches)
@@ -200,6 +243,7 @@ buttonPanel = uipanel('Parent', fig, 'Position', [0.5, 0.6, 0.5, 0.4]);
             end
         end
         %affiche l'image traitée
+        imagePlaque = plateImage;
         imshow(imagePlaque);
         title('Image traite');
     end
