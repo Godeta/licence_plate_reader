@@ -65,7 +65,7 @@ function name = findName(id, texte)
     % Check if the string is inside the table
     [isStringPresent, index] = ismember(id, texte(:,1));
     if(isStringPresent>0)
-        name = texte(index,2);
+        name = texte(index,6);
     else
         name = 'Not found';
     end;
@@ -74,8 +74,8 @@ end
 function name = findCrime(id, texte)
     % Check if the string is inside the table
     [isStringPresent, index] = ismember(id, texte(:,1));
-    if(isStringPresent>0 && strcmp(texte(index,3),'NOK'))
-        name = strcat(texte(index,2), ' ', texte(index,4));
+    if(isStringPresent>0 && strcmp(texte(index,7),'NOK'))
+        name = strcat(texte(index,6), ' ', texte(index,8));
     else
         name = '';
     end;
